@@ -6,7 +6,7 @@
 WG_Server_port=51820
 
 # 传入客户端名称
-client_name=$1
+CLIENT_NAME=$1
 # 获取公网IP地址
 server_public_ip=$(curl -s ipv4.icanhazip.com)
 # 连接保活间隔
@@ -46,14 +46,14 @@ function set_client_dns() {
 # 生成客户端密钥文件
 function gen_client_key() {
     # 判断同名密钥文件是否存在,，如存在停止脚本
-    (ls /etc/wireguard/user_conf/"$client_name".privatekey &>/dev/null && ls /etc/wireguard/user_conf/"$client_name".publickey &>/dev/null) && echo "同名密钥文件已存在，脚本停止" && exit 1
+    (ls /etc/wireguard/user_conf/"$CLIENT_NAME".privatekey &>/dev/null && ls /etc/wireguard/user_conf/"$CLIENT_NAME".publickey &>/dev/null) && echo "同名密钥文件已存在，脚本停止" && exit 1
     # 生成客户端密钥对文件
-    umask 077 | wg genkey | tee /etc/wireguard/user_conf/"$client_name".privatekey | wg pubkey >/etc/wireguard/user_conf/"$client_name".publickey
+    umask 077 | wg genkey | tee /etc/wireguard/user_conf/"$CLIENT_NAME".privatekey | wg pubkey >/etc/wireguard/user_conf/"$CLIENT_NAME".publickey
 
     # 检查预共享密钥是否存在，如存在停止脚本
-    ls /etc/wireguard/user_conf/"$client_name".PresharedKey &>/dev/null && echo "同名密钥文件已存在，脚本停止" && exit 1
+    ls /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey &>/dev/null && echo "同名密钥文件已存在，脚本停止" && exit 1
     # 生成预共享密钥
-    umask 077 | wg genpsk | tee /etc/wireguard/user_conf/"$client_name".PresharedKey
+    umask 077 | wg genpsk | tee /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey
 }
 
 # 为用户分配IP地址
@@ -69,12 +69,12 @@ function gen_client_ip() {
 # 添加新客户端配置到wg服务端wg0.conf文件中
 function add_client_to_server() {
     # 读取公钥字符串
-    client_public=$(cat /etc/wireguard/user_conf/"$client_name".publickey)
+    client_public=$(cat /etc/wireguard/user_conf/"$CLIENT_NAME".publickey)
     # 增加客户端的公钥到服务端(加载到内存队列中)
     ## set <interface>
     ## peer <base64 public key>
     ## preshared-key 用户的预共享密钥，这里必须传文件
-    wg set wg0 peer "$client_public" preshared-key /etc/wireguard/user_conf/"$client_name".PresharedKey persistent-keepalive "$Persistent_Keepalive_time" allowed-ips "$ip_add"
+    wg set wg0 peer "$client_public" preshared-key /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey persistent-keepalive "$Persistent_Keepalive_time" allowed-ips "$ip_add"
 
     # 重启wg服务端，使新的客户端生效---不够优雅，会有秒级中断
     ## 一定要重启wg服务端,新的客户端配置才会被加载,加载完成后新客户端就可以接入到服务器了。
@@ -87,11 +87,11 @@ function add_client_to_server() {
 
 # 生成客户端的配置文件
 function gen_new_user_profile() {
-    cat <<EOF >/etc/wireguard/user_conf/"$client_name".conf
+    cat <<EOF >/etc/wireguard/user_conf/"$CLIENT_NAME".conf
 [Interface]
 # name=$1
 # 客户端的私匙
-PrivateKey = $(cat /etc/wireguard/user_conf/"$client_name".privatekey)
+PrivateKey = $(cat /etc/wireguard/user_conf/"$CLIENT_NAME".privatekey)
 
 # 客户端的内网IP地址
 Address = $ip_add/24
@@ -106,7 +106,7 @@ DNS = $client_dns
 PublicKey = $(cat /etc/wireguard/server.publickey)
 
 # 预共享密钥
-PresharedKey = $(cat /etc/wireguard/user_conf/"$client_name".PresharedKey)
+PresharedKey = $(cat /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey)
 
 # 因为是客户端，所以这个设置为全部IP段即可
 AllowedIPs = 0.0.0.0/0
@@ -125,19 +125,19 @@ EOF
 # 清理客户端的密钥文件,防止密钥对丢失
 function clear_user_key_file() {
     # 删除公钥文件
-    rm -rf /etc/wireguard/user_conf/"$client_name".publickey &>/dev/null
+    rm -rf /etc/wireguard/user_conf/"$CLIENT_NAME".publickey &>/dev/null
     # 删除私钥文件
-    rm -rf /etc/wireguard/user_conf/"$client_name".privatekey &>/dev/null
+    rm -rf /etc/wireguard/user_conf/"$CLIENT_NAME".privatekey &>/dev/null
     # 删除共享密钥文件
-    rm -rf /etc/wireguard/user_conf/"$client_name".PresharedKey &>/dev/null
+    rm -rf /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey &>/dev/null
 }
 
 # 在屏幕生成二维码
 function gen_qrencode() {
 
     # 去除配置文件到注释和空行，防止生成的wg二维码不被识别
-    # grep -Ev '^#|^$' /etc/wireguard/user_conf/"$client_name".conf >tmpfile && mv -f /etc/wireguard/user_conf/tmpfile /etc/wireguard/user_conf/"$client_name".conf
-    grep -Ev '^#|^$' /etc/wireguard/user_conf/"$client_name".conf >/etc/wireguard/user_conf/tmpfile
+    # grep -Ev '^#|^$' /etc/wireguard/user_conf/"$CLIENT_NAME".conf >tmpfile && mv -f /etc/wireguard/user_conf/tmpfile /etc/wireguard/user_conf/"$CLIENT_NAME".conf
+    grep -Ev '^#|^$' /etc/wireguard/user_conf/"$CLIENT_NAME".conf >/etc/wireguard/user_conf/tmpfile
 
     # 将这个客户端配置文件生成二维码,展示在终端中
     qrencode -t ansiutf8 </etc/wireguard/user_conf/tmpfile

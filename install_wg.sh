@@ -83,9 +83,9 @@ function install_dependent_pkg() {
 function install_wg_pkg() {
     # 检查wg是否已经安装
     check_if_wg_ok
-    # 安装的依赖的repo
-    rpm -q --quiet epel-release || yum install -y epel-release
-    rpm -q --quiet elrepo-release || yum install -y elrepo-release
+    # 判断epel和elrepo源文件是否存在
+    ls /etc/yum.repos.d/epel.repo &>/dev/null || yum install -y epel-release
+    ls /etc/yum.repos.d/elrepo.repo &>/dev/null || yum install -y elrepo-release
     # 安装wg内核模块和wg-quick命令行
     yum install -y wireguard-tools || dnf install -y wireguard-tools
     echo "安装wg工具完成"
@@ -134,8 +134,8 @@ function gen_server_key() {
 # 配置服务端
 function init_wg_server() {
 
-    # 网卡名
-    eth=$(ls /sys/class/net | awk '/^e/{print}')
+    # 出口网卡名
+    ETH_NAME=$(ls /sys/class/net | awk '/^e/{print}')
     # 如果已经存在wg0.conf文件,就退出代码
     ls /etc/wireguard/wg0.conf &>/dev/null && echo "wg0.conf文件已经存在" && exit 1
 
@@ -155,9 +155,9 @@ Address = 10.89.64.1/24
 # PreUp:在建立 VPN 连接之前执行的命令或脚本
 # PostUp:在成功建立 VPN 连接后执行的命令或脚本
 # 放行wg的udp端口
-PreUp = iptables -w -I INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行 udp/$WG_Server_port端口"
-#PostUp = ufw route allow in on wg0 out on $eth
-PostUp = iptables -w -t nat -I POSTROUTING -o $eth -j MASQUERADE -m comment --comment '开启地址转换'
+PreUp = iptables -w -I INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行wg的udp端口 udp/$WG_Server_port端口"
+#PostUp = ufw route allow in on wg0 out on $ETH_NAME
+PostUp = iptables -w -t nat -I POSTROUTING -o $ETH_NAME -j MASQUERADE -m comment --comment '开启地址转换'
 # 自动调整mss,防止某些网站打不开
 PostUp = iptables -w -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu -m comment --comment '自动调整mss,防止某些网站打不开'
 # 调整DSCP值
@@ -169,8 +169,8 @@ PostUp = iptables -w -t mangle -I OUTPUT -p udp -s 10.89.64.0/24 -j DSCP --set-d
 # PostDown:在成功断开 VPN 连接之后 执行的命令或脚本
 # 停止WireGuard时要执行的iptables防火墙规则,用于关闭NAT转发之类的.
 ## 如果不是Ubuntu系统,就注释掉ufw防火墙
-# PreDown = ufw route delete allow in on wg0 out on $eth
-PreDown = iptables -w -t nat -D POSTROUTING -o $eth -j MASQUERADE -m comment --comment '开启地址转换'
+# PreDown = ufw route delete allow in on wg0 out on $ETH_NAME
+PreDown = iptables -w -t nat -D POSTROUTING -o $ETH_NAME -j MASQUERADE -m comment --comment '开启地址转换'
 # 删除自动调整mss
 PostDown = iptables -w -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu -m comment --comment '自动调整mss,防止某些网站打不开'
 # 删除DSCP值
