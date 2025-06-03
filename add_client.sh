@@ -82,7 +82,7 @@ function add_client_to_server() {
     # 将当前运行时配置写入磁盘
     wg-quick save wg0
     # 在不中断活动会话的情况下重新加载配置文件(比重启服务优雅)
-    wg syncconf wg0 <(wg-quick strip wg0)
+    # wg syncconf wg0 <(wg-quick strip wg0)
     # wg syncconf wg0 <(wg-quick strip /etc/wireguard/user_conf/u1/u1.conf)
     
 }
