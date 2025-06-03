@@ -79,6 +79,8 @@ function add_client_to_server() {
     ## 一定要重启wg服务端,新的客户端配置才会被加载,加载完成后新客户端就可以接入到服务器了。
     # systemctl restart wg-quick@wg0
 
+    # 将当前运行时配置写入磁盘
+    wg-quick save wg0
     # 在不中断活动会话的情况下重新加载配置文件(比重启服务优雅)
     wg syncconf wg0 <(wg-quick strip wg0)
     # wg syncconf wg0 <(wg-quick strip /etc/wireguard/user_conf/u1/u1.conf)
