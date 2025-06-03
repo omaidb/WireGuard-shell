@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# 服务端端口
-Server_port=22
+# Wireguard服务端默认端口
+WG_Server_port=51820
 
 # 判断wireguard是否已经安装
 check_if_wg_ok() {
@@ -87,7 +87,7 @@ function install_wg_pkg() {
     rpm -q --quiet epel-release || yum install -y epel-release
     rpm -q --quiet elrepo-release || yum install -y elrepo-release
     # 安装wg内核模块和wg-quick命令行
-    yum install -y kmod-wireguard wireguard-tools || dnf install -y wireguard-tools
+    yum install -y wireguard-tools || dnf install -y wireguard-tools
     echo "安装wg工具完成"
 }
 
@@ -95,7 +95,7 @@ function install_wg_pkg() {
 function load_the_wg_kernel_module() {
 
     # 在启动时自动加载wireguard模块
-    echo wireguard >/etc/modules-load.d/wireguard.conf
+    [ -f "/etc/modules-load.d/wireguard.conf" ] || echo wireguard >/etc/modules-load.d/wireguard.conf
 
     # 加载内核模块,查看模块是否加载成功
     modprobe wireguard && lsmod | grep wireguard --color=auto
@@ -106,11 +106,11 @@ function tune_kernel() {
 
     if [[ "$os" = "rhel" && "$os_version" -eq 7 ]]; then
         # 下载适用于wg的sysctl配置
-        wget -P /etc/sysctl.d -c https://raw.githubusercontent.com/omaidb/qiaofei_notes/main/shell_code/wireguard/sysctl_vpn_rhel7.conf
+        wget -P /etc/sysctl.d -c https://raw.githubusercontent.com/omaidb/WireGuard-shell/refs/heads/main/sysctl_vpn_rhel7.conf
 
     elif [[ "$os" = "rhel" && "$os_version" -eq 8 ]]; then
         # 下载适用于wg的sysctl配置
-        wget -P /etc/sysctl.d -c https://raw.githubusercontent.com/omaidb/qiaofei_notes/main/shell_code/wireguard/sysctl_vpn_rhel8.conf
+        wget -P /etc/sysctl.d -c https://raw.githubusercontent.com/omaidb/WireGuard-shell/refs/heads/main/sysctl_vpn_rhel8.conf
     else
         echo "使用此安装程序需要 CentOS7 或RHEL8.此版本的Linux不受支持." && exit 1
     fi
@@ -155,7 +155,7 @@ Address = 10.89.64.1/24
 # PreUp:在建立 VPN 连接之前执行的命令或脚本
 # PostUp:在成功建立 VPN 连接后执行的命令或脚本
 # 放行wg的udp端口
-PreUp = iptables -w -I INPUT -p udp --dport $Server_port -j ACCEPT -m comment --comment "放行 udp/$Server_port端口"
+PreUp = iptables -w -I INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行 udp/$WG_Server_port端口"
 #PostUp = ufw route allow in on wg0 out on $eth
 PostUp = iptables -w -t nat -I POSTROUTING -o $eth -j MASQUERADE -m comment --comment '开启地址转换'
 # 自动调整mss,防止某些网站打不开
@@ -177,11 +177,11 @@ PostDown = iptables -w -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --cla
 PostDown = iptables -w -t mangle -D OUTPUT -p tcp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '出方向TCP流量的DSCP值设为46'
 PostDown = iptables -w -t mangle -D OUTPUT -p udp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '入方向UDP流量的DSCP值为46'
 # 删除放行端口
-PostDown = iptables -w -D INPUT -p udp --dport $Server_port -j ACCEPT -m comment --comment "放行 udp/$Server_port端口"
+PostDown = iptables -w -D INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行 udp/$WG_Server_port端口"
 
 
 # 服务端监听端口,可以自行修改
-ListenPort = $Server_port
+ListenPort = $WG_Server_port
 # SaveConfig确保当WireGuard接口关闭时,任何更改都将保存到配置文件中
 SaveConfig = true
 # 服务端请求域名解析DNS,可以在本机搭建dns服务加快解析

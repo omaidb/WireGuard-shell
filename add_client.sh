@@ -2,6 +2,9 @@
 
 # 开启debug
 # set -ex
+# Wireguard服务端默认端口
+WG_Server_port=51820
+
 # 传入客户端名称
 client_name=$1
 # 获取公网IP地址
@@ -9,7 +12,7 @@ server_public_ip=$(curl -s ipv4.icanhazip.com)
 # 连接保活间隔
 Persistent_Keepalive_time=1
 # wg服务器监听的端口
-Server_listen_port=$(wg show wg0 listen-port || echo 11194)
+Server_listen_port=$(wg show wg0 listen-port || echo $WG_Server_port)
 
 # 环境检查
 function check_env() {
