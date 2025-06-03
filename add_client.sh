@@ -2,8 +2,6 @@
 
 # 开启debug
 # set -ex
-# Wireguard服务端默认端口
-WG_Server_port=51820
 
 # 传入客户端名称
 CLIENT_NAME=$1
@@ -12,7 +10,8 @@ server_public_ip=$(curl -s ipv4.icanhazip.com)
 # 连接保活间隔
 Persistent_Keepalive_time=1
 # wg服务器监听的端口
-Server_listen_port=$(wg show wg0 listen-port || echo $WG_Server_port)
+# Wireguard服务端默认端口51820
+WG_Server_listen_port=$(wg show wg0 listen-port || echo 51820)
 
 # 环境检查
 function check_env() {
@@ -34,12 +33,12 @@ function check_env() {
 # 设置客户端dns
 function set_client_dns() {
     local result
-    result=$(systemctl is-active dnsmasq.service)
+    result=$(systemctl is-active smartdns.service)
     if [[ $result != "active" ]]; then
-        echo "dnsmasq.service服务端未启动"
+        echo "smartdns.service服务端未启动"
         client_dns="1.0.0.1"
     else
-        client_dns=$(hostname -i)
+        client_dns="10.89.64.1"
     fi
 }
 
@@ -78,11 +77,12 @@ function add_client_to_server() {
 
     # 重启wg服务端，使新的客户端生效---不够优雅，会有秒级中断
     ## 一定要重启wg服务端,新的客户端配置才会被加载,加载完成后新客户端就可以接入到服务器了。
-    systemctl restart wg-quick@wg0
+    # systemctl restart wg-quick@wg0
 
     # 在不中断活动会话的情况下重新加载配置文件(比重启服务优雅)
-    # wg syncconf wg0 <(wg-quick strip wg0)
+    wg syncconf wg0 <(wg-quick strip wg0)
     # wg syncconf wg0 <(wg-quick strip /etc/wireguard/user_conf/u1/u1.conf)
+    
 }
 
 # 生成客户端的配置文件
@@ -112,7 +112,7 @@ PresharedKey = $(cat /etc/wireguard/user_conf/"$CLIENT_NAME".PresharedKey)
 AllowedIPs = 0.0.0.0/0
 
 # 服务器地址和端口
-Endpoint = $server_public_ip:$Server_listen_port
+Endpoint = $server_public_ip:$WG_Server_listen_port
 
 # 连接保活间隔
 ## PersistentKeepalive 参数只适用于 WireGuard 的客户端配置，而不是服务器配置
