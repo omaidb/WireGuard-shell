@@ -157,9 +157,12 @@ Address = 10.89.64.1/24
 # 放行wg的udp端口
 PreUp = iptables -w -I INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行wg的udp端口 udp/$WG_Server_port端口"
 #PostUp = ufw route allow in on wg0 out on $ETH_NAME
+# 开启地址转换
 PostUp = iptables -w -t nat -I POSTROUTING -o $ETH_NAME -j MASQUERADE -m comment --comment '开启地址转换'
 # 自动调整mss,防止某些网站打不开
 PostUp = iptables -w -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu -m comment --comment '自动调整mss,防止某些网站打不开'
+# 指定MSS值为 MTU-40
+# PostUp = iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1160 -m comment --comment '指定MSS值为 MTU-40'
 # 调整DSCP值
 PostUp = iptables -w -t mangle -I OUTPUT -p tcp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '出方向TCP流量的DSCP值设为46'
 PostUp = iptables -w -t mangle -I OUTPUT -p udp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '入方向UDP流量的DSCP值为46'
@@ -167,15 +170,18 @@ PostUp = iptables -w -t mangle -I OUTPUT -p udp -s 10.89.64.0/24 -j DSCP --set-d
 
 # PreDown:在断开 VPN 连接之前 执行的命令或脚本
 # PostDown:在成功断开 VPN 连接之后 执行的命令或脚本
-# 停止WireGuard时要执行的iptables防火墙规则,用于关闭NAT转发之类的.
-## 如果不是Ubuntu系统,就注释掉ufw防火墙
-# PreDown = ufw route delete allow in on wg0 out on $ETH_NAME
-PreDown = iptables -w -t nat -D POSTROUTING -o $ETH_NAME -j MASQUERADE -m comment --comment '开启地址转换'
-# 删除自动调整mss
-PostDown = iptables -w -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu -m comment --comment '自动调整mss,防止某些网站打不开'
+
 # 删除DSCP值
 PostDown = iptables -w -t mangle -D OUTPUT -p tcp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '出方向TCP流量的DSCP值设为46'
 PostDown = iptables -w -t mangle -D OUTPUT -p udp -s 10.89.64.0/24 -j DSCP --set-dscp 46 -m comment --comment '入方向UDP流量的DSCP值为46'
+# 删除自动调整mss
+PostDown = iptables -w -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu -m comment --comment '自动调整mss,防止某些网站打不开'
+# 删除MSS值
+# PostDown = iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1160 -m comment --comment '指定MSS值为 MTU-40'
+# 关闭NAT转发
+## 如果不是Ubuntu系统,就注释掉ufw防火墙
+## PreDown = ufw route delete allow in on wg0 out on $ETH_NAME
+PreDown = iptables -w -t nat -D POSTROUTING -o $ETH_NAME -j MASQUERADE -m comment --comment '开启地址转换'
 # 删除放行端口
 PostDown = iptables -w -D INPUT -p udp --dport $WG_Server_port -j ACCEPT -m comment --comment "放行 udp/$WG_Server_port端口"
 
@@ -187,6 +193,7 @@ SaveConfig = true
 # 服务端请求域名解析DNS,可以在本机搭建dns服务加快解析
 DNS = 1.0.0.1,8.8.4.4
 # 服务端mtu不设置,为自动mtu(默认)
+MTU = 1280
 # 连接保活间隔PersistentKeepalive 参数只适用于 WireGuard 的客户端配置,而不是服务器配置
 EOF
 

@@ -99,6 +99,7 @@ PrivateKey = $(cat /etc/wireguard/user_conf/"$CLIENT_NAME".privatekey)
 Address = $ip_add/24
 
 # 客户端MTU配置,不设置,则为auto
+MTU = 1280
 
 # 解析域名用的DNS
 DNS = $client_dns
